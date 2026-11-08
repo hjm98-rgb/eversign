@@ -71,7 +71,44 @@ jobs:
           cd out && zip -qry ../EverSign.ipa Payload
           ls -lh ../EverSign.ipa
 
+      - name: Package deb (for jailbroken devices)
+        run: |
+          APP="EverSign/.theos/obj/EverSign.app"
+          rm -rf debroot
+          mkdir -p debroot/DEBIAN debroot/Applications
+          cp -R "$APP" debroot/Applications/
+          cat > debroot/DEBIAN/control <<'EOF'
+          Package: com.hjm.eversign
+          Name: EverSign
+          Version: 1.0.0
+          Architecture: iphoneos-arm64
+          Description: Permanent IPA installer using the CoreTrust signature flaw
+          Maintainer: hjm
+          Author: hjm
+          Section: Applications
+          EOF
+          cat > debroot/DEBIAN/postinst <<'EOF'
+          #!/bin/bash
+          set -e
+          chown -R root:wheel /Applications/EverSign.app
+          find /Applications/EverSign.app -type d -exec chmod 755 {} \;
+          find /Applications/EverSign.app -type f -exec chmod 644 {} \;
+          chmod 755 /Applications/EverSign.app/EverSign
+          chmod 755 /Applications/EverSign.app/ldid
+          uicache -a 2>/dev/null || true
+          killall -9 SpringBoard 2>/dev/null || true
+          exit 0
+          EOF
+          chmod 755 debroot/DEBIAN/postinst
+          dpkg-deb --root-owner-group -Zgzip --build debroot EverSign.deb
+          ls -lh EverSign.deb
+
       - uses: actions/upload-artifact@v4
         with:
           name: EverSign-ipa
           path: EverSign.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EverSign-deb
+          path: EverSign.deb
