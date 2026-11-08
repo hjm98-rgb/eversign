@@ -286,6 +286,8 @@ static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
 	return ok;
 }
 
+@end
+
 @interface ESInstallAppDelegate : UIResponder <UIApplicationDelegate>
 @property (nonatomic, strong) UIWindow *window;
 @end
