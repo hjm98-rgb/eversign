@@ -1,0 +1,49 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Theos
+        run: |
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Fetch ldid (iOS arm64)
+        run: |
+          mkdir -p EverSign/Resources
+          curl -sL -o EverSign/Resources/ldid https://github.com/opa334/ldid/releases/latest/download/ldid
+          chmod +x EverSign/Resources/ldid
+          file EverSign/Resources/ldid || true
+          ls -l EverSign/Resources/
+
+      - name: Build
+        run: |
+          make -C EverSign FINALPACKAGE=1
+          ls -la EverSign/.theos/obj/EverSign.app/
+
+      - name: Re-sign with legacy CoreTrust cert
+        run: |
+          APP="EverSign/.theos/obj/EverSign.app"
+          "$THEOS/bin/ldid" -K"$PWD/EverSign/Resources/victim.p12" -S"$PWD/EverSign/entitlements.plist" "$APP/EverSign"
+          "$THEOS/bin/ldid" -e "$APP/EverSign" | head -30 || true
+
+      - name: Package IPA
+        run: |
+          APP="EverSign/.theos/obj/EverSign.app"
+          mkdir -p out/Payload
+          cp -R "$APP" out/Payload/
+          cd out && zip -qry ../EverSign.ipa Payload
+          ls -lh ../EverSign.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EverSign-ipa
+          path: EverSign.ipa
