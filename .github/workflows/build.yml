@@ -101,7 +101,7 @@ jobs:
           cat > debroot/DEBIAN/control <<'EOF'
           Package: com.hjm.eversign.installer
           Name: EverSign Installer
-          Version: 1.1.0
+          Version: 1.2.0
           Architecture: iphoneos-arm64
           Description: Entry app that installs EverSign as a system app via the CoreTrust flaw
           Maintainer: hjm

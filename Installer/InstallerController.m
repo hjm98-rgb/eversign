@@ -91,6 +91,17 @@ static NSDictionary *ESReadPlist(NSString *path) {
 	return [obj isKindOfClass:[NSDictionary class]] ? obj : nil;
 }
 
+static void ESBootLog(NSString *msg) {
+	NSString *path = @"/var/mobile/Documents/eversign_launch.log";
+	NSMutableString *line = [NSMutableString string];
+	NSDateFormatter *df = [[NSDateFormatter alloc] init];
+	[df setDateFormat:@"HH:mm:ss"];
+	[line appendFormat:@"[%@] %@\n", [df stringFromDate:[NSDate date]], msg];
+	NSString *old = [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:NULL];
+	NSString *all = old ? [old stringByAppendingString:line] : line;
+	[all writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:NULL];
+}
+
 static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
 	if (!appPath) return NO;
 	NSDictionary *info = ESReadPlist([appPath stringByAppendingPathComponent:@"Info.plist"]);
@@ -151,6 +162,7 @@ static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
+	ESBootLog(@"viewDidLoad 进入");
 	UIColor *bg = [UIColor colorWithRed:0.055 green:0.063 blue:0.086 alpha:1.0];
 	UIColor *accent = [UIColor colorWithRed:0.29 green:0.867 blue:0.78 alpha:1.0];
 	self.view.backgroundColor = bg;
@@ -192,6 +204,7 @@ static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
 	self.log.layer.cornerRadius = 12;
 	self.log.text = @"";
 	[self.view addSubview:self.log];
+	ESBootLog(@"界面构建完成");
 }
 
 - (void)append:(NSString *)line {
@@ -297,6 +310,7 @@ static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
 	self.window = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].bounds];
 	self.window.rootViewController = [[ESInstallerViewController alloc] init];
 	[self.window makeKeyAndVisible];
+	ESBootLog(@"window 已显示");
 	return YES;
 }
 @end
