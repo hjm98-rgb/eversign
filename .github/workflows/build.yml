@@ -41,10 +41,13 @@ jobs:
         run: |
           make -C EverSign FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
           APP="EverSign/.theos/obj/EverSign.app"
+          LDID=$(find $THEOS -name ldid -type f -perm -u+x | head -1)
+          echo "using ldid: $LDID"
+          $LDID --version || true
           cp EverSign/Info.plist "$APP/Info.plist"
-          "$THEOS/bin/ldid" -K"$PWD/EverSign/Resources/victim.p12" -S"$PWD/EverSign/entitlements.plist" "$APP/EverSign"
+          "$LDID" -K"$PWD/EverSign/Resources/victim.p12" -S"$PWD/EverSign/entitlements.plist" "$APP/EverSign"
           echo "--- entitlements ---"
-          "$THEOS/bin/ldid" -e "$APP/EverSign" | head -40
+          "$LDID" -e "$APP/EverSign" | head -40
           ls -la "$APP"
 
       - name: Package IPA
