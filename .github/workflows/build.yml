@@ -40,8 +40,12 @@ jobs:
       - name: Build
         run: |
           make -C EverSign FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
-          ls -la EverSign/.theos/obj/ || true
-          ls -la EverSign/.theos/obj/EverSign.app/ || true
+          APP="EverSign/.theos/obj/EverSign.app"
+          cp EverSign/Info.plist "$APP/Info.plist"
+          "$THEOS/bin/ldid" -K"$PWD/EverSign/Resources/victim.p12" -S"$PWD/EverSign/entitlements.plist" "$APP/EverSign"
+          echo "--- entitlements ---"
+          "$THEOS/bin/ldid" -e "$APP/EverSign" | head -40
+          ls -la "$APP"
 
       - name: Package IPA
         run: |
