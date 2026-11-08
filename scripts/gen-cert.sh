@@ -4,6 +4,9 @@
 set -euo pipefail
 
 OUT="${1:-victim.p12}"
+# 解析成绝对路径，避免 cd 之后路径拼接错乱
+case "$OUT" in /*) ;; *) OUT="$PWD/$OUT" ;; esac
+mkdir -p "$(dirname "$OUT")"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -43,9 +46,9 @@ openssl x509 -req -in leaf.csr -CA inter.crt -CAkey inter.key -CAcreateserial \
 # 4. 打包成 ldid 可用的 p12（空密码），包含完整证书链
 cat leaf.crt inter.crt root.crt > chain.pem
 openssl pkcs12 -export -inkey leaf.key -in leaf.crt -certfile chain.pem \
-  -out "$OLDPWD/$OUT" -passout pass: -legacy 2>/dev/null \
+  -out "$OUT" -passout pass: -legacy 2>/dev/null \
   || openssl pkcs12 -export -inkey leaf.key -in leaf.crt -certfile chain.pem \
-     -out "$OLDPWD/$OUT" -passout pass:
+     -out "$OUT" -passout pass:
 
-echo "generated: $OLDPWD/$OUT"
-openssl pkcs12 -in "$OLDPWD/$OUT" -passin pass: -nokeys -clcerts 2>/dev/null | openssl x509 -noout -subject
+echo "generated: $OUT"
+openssl pkcs12 -in "$OUT" -passin pass: -nokeys -clcerts 2>/dev/null | openssl x509 -noout -subject
