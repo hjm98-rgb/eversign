@@ -24,9 +24,10 @@ jobs:
 
       - name: Fetch iOS SDK
         run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks /tmp/sdks
+          cd /tmp/sdks && git sparse-checkout set iPhoneOS16.5.sdk
           mkdir -p $HOME/theos/sdks
-          curl -sL -o /tmp/sdk.tar.xz https://github.com/theos/sdks/raw/master/iPhoneOS16.5.sdk.tar.xz
-          tar -xf /tmp/sdk.tar.xz -C $HOME/theos/sdks
+          cp -R /tmp/sdks/iPhoneOS16.5.sdk $HOME/theos/sdks/
           ls $HOME/theos/sdks
 
       - name: Fetch ldid (iOS arm64)
