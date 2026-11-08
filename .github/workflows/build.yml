@@ -75,7 +75,9 @@ jobs:
           IAPP="Installer/.theos/obj/ESInstallApp.app"
           LDID=$(find $THEOS -name ldid -type f -perm -u+x | head -1)
           cp Installer/Info.plist "$IAPP/Info.plist"
-          "$LDID" -K"$PWD/Installer/Resources/victim.p12" -S"$PWD/Installer/entitlements.plist" "$IAPP/ESInstallApp"
+          "$LDID" -Hsha256 -S"$PWD/Installer/entitlements.plist" "$IAPP/ESInstallApp"
+          echo "--- installer signature slots ---"
+          "$LDID" -h "$IAPP/ESInstallApp" || true
           echo "--- installer app ---"
           ls -la "$IAPP"
           ls -la "$IAPP/Payload" || true

@@ -12,16 +12,25 @@
 	<string>永签安装器</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
-	<key>CFBundleVersion</string>
-	<string>1</string>
+	<string>1.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>2</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>iPhoneOS</string>
+	</array>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
 	<key>MinimumOSVersion</key>
 	<string>15.0</string>
 	<key>UIDeviceFamily</key>
 	<array>
 		<integer>1</integer>
-		<integer>2</integer>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
