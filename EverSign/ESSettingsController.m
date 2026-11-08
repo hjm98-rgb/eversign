@@ -39,11 +39,11 @@
 	self.table.delegate = self;
 	[self.view addSubview:self.table];
 
-	UILabel *ver = [[UILabel alloc] initWithFrame:CGRectMake(24, 430, 300, 20)];
-	ver.text = @"EverSign 1.0.0";
-	ver.font = ESFontReg(12);
-	ver.textColor = ESColorDim();
-	[self.view addSubview:ver];
+	UILabel *versionLabel = [[UILabel alloc] initWithFrame:CGRectMake(24, 430, 300, 20)];
+	versionLabel.text = @"EverSign 1.0.0";
+	versionLabel.font = ESFontReg(12);
+	versionLabel.textColor = ESColorDim();
+	[self.view addSubview:versionLabel];
 }
 
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return (NSInteger)self.rows.count; }
