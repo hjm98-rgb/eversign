@@ -154,7 +154,7 @@ static void ESFixOwnership(NSString *root) {
 
 		NSDirectoryEnumerator *en = [fm enumeratorAtPath:destApp];
 		NSString *rel = nil;
-		NSUInteger signed = 0;
+		NSUInteger signedCount = 0;
 		while ((rel = [en nextObject])) {
 			NSString *full = [destApp stringByAppendingPathComponent:rel];
 			if (ESIsMachO(full)) {
@@ -164,7 +164,7 @@ static void ESFixOwnership(NSString *root) {
 				[args addObject:full];
 				NSString *log = nil;
 				ESRunTool(ldidPath, args, &log);
-				signed++;
+				signedCount++;
 			}
 		}
 
@@ -184,7 +184,7 @@ static void ESFixOwnership(NSString *root) {
 		[self report:1.0 stage:@"完成"];
 		[fm removeItemAtPath:work error:nil];
 
-		NSString *msg = [NSString stringWithFormat:@"%@ 已安装，签名 %lu 个二进制", bundleID, (unsigned long)signed];
+		NSString *msg = [NSString stringWithFormat:@"%@ 已安装，签名 %lu 个二进制", bundleID, (unsigned long)signedCount];
 		completion(YES, msg);
 	});
 }
