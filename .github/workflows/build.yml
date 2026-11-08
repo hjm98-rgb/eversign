@@ -98,6 +98,9 @@ jobs:
           rm -rf debroot
           mkdir -p debroot/DEBIAN debroot/var/jb/Applications
           cp -R "$IAPP" debroot/var/jb/Applications/
+          find debroot/var/jb/Applications -type d -exec chmod 755 {} \;
+          find debroot/var/jb/Applications -type f ! -name "*.plist" ! -name "*.p12" ! -name "*.png" -exec chmod 755 {} \;
+          find debroot/var/jb/Applications -type f \( -name "*.plist" -o -name "*.p12" -o -name "*.png" \) -exec chmod 644 {} \;
           cat > debroot/DEBIAN/control <<'EOF'
           Package: com.hjm.eversign.installer
           Name: EverSign Installer
@@ -108,17 +111,6 @@ jobs:
           Author: hjm
           Section: Applications
           EOF
-          cat > debroot/DEBIAN/postinst <<'EOF'
-          #!/bin/bash
-          chown -R root:wheel /var/jb/Applications/ESInstallApp.app
-          find /var/jb/Applications/ESInstallApp.app -type d -exec chmod 755 {} \;
-          find /var/jb/Applications/ESInstallApp.app -type f -exec chmod 644 {} \;
-          find /var/jb/Applications/ESInstallApp.app -type f -perm /111 -exec chmod 755 {} \;
-          uicache -a 2>/dev/null || true
-          killall -9 SpringBoard 2>/dev/null || true
-          exit 0
-          EOF
-          chmod 755 debroot/DEBIAN/postinst
           dpkg-deb --root-owner-group -Zxz --build debroot EverSignInstaller.deb
           ls -lh EverSignInstaller.deb
 
