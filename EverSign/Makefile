@@ -10,7 +10,7 @@ EverSign_FILES = $(wildcard *.m)
 EverSign_FRAMEWORKS = UIKit Foundation CoreGraphics QuartzCore UniformTypeIdentifiers
 EverSign_LIBRARIES = z
 EverSign_RESOURCE_FILES = Resources/ldid Resources/victim.p12 Resources/entitlements.plist
-EverSign_CODESIGN_FLAGS = -SEverSign/entitlements.plist
+EverSign_CODESIGN_FLAGS = -Sentitlements.plist
 
 include $(THEOS_MAKE_PATH)/application.mk
 
