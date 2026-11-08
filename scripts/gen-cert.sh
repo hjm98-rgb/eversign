@@ -15,30 +15,32 @@ cd "$TMP"
 # 1. 根证书
 openssl genrsa -out root.key 2048 2>/dev/null
 openssl req -new -x509 -days 3650 -key root.key -out root.crt \
-  -subj "/CN=EverSign Root CA/O=EverSign/C=CN" \
+  -subj "/C=CN/O=EverSign/CN=EverSign Root CA" \
+  -addext "1.2.840.113635.100.6.2.18=DER:0500" \
   -addext "basicConstraints=critical,CA:TRUE" \
   -addext "keyUsage=critical,keyCertSign,cRLSign" 2>/dev/null
 
 # 2. 中间证书
 openssl genrsa -out inter.key 2048 2>/dev/null
 openssl req -new -key inter.key -out inter.csr \
-  -subj "/CN=EverSign Certification Authority/O=EverSign/C=CN" 2>/dev/null
+  -subj "/C=CN/O=EverSign/CN=EverSign Certification Authority" \
+  -addext "1.2.840.113635.100.6.2.18=DER:0500" 2>/dev/null
 cat > inter.ext <<'EOF'
 basicConstraints=critical,CA:TRUE,pathlen:0
 keyUsage=critical,keyCertSign,cRLSign
 EOF
 openssl x509 -req -in inter.csr -CA root.crt -CAkey root.key -CAcreateserial \
-  -days 3650 -out inter.crt -extfile inter.ext 2>/dev/null
+  -days 3650 -out inter.crt -extfile inter.ext -copy_extensions copyall 2>/dev/null
 
 # 3. 叶子证书（应用签名用），带上 Apple 的 1.2.840.113635.100.6.2.18 标记
 openssl genrsa -out leaf.key 2048 2>/dev/null
 openssl req -new -key leaf.key -out leaf.csr \
-  -subj "/CN=EverSign iPhone OS Application Signing/O=EverSign/C=CN" 2>/dev/null
+  -subj "/C=CN/O=EverSign/CN=EverSign iPhone OS Application Signing" 2>/dev/null
 cat > leaf.ext <<'EOF'
 basicConstraints=critical,CA:FALSE
 keyUsage=critical,digitalSignature
 extendedKeyUsage=codeSigning
-1.2.840.113635.100.6.2.18=DER:0500
+1.2.840.113635.100.6.1.3=DER:0500
 EOF
 openssl x509 -req -in leaf.csr -CA inter.crt -CAkey inter.key -CAcreateserial \
   -days 3650 -out leaf.crt -extfile leaf.ext 2>/dev/null

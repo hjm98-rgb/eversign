@@ -38,7 +38,7 @@ jobs:
           ls -l EverSign/Resources/
 
       - name: Generate own signing cert
-        run: bash scripts/gen-cert.sh "$PWD/EverSign/Resources/victim.p12"
+        run: mkdir -p EverSign/Resources && bash scripts/gen-cert.sh EverSign/Resources/victim.p12
 
       - name: Build persistence helper
         run: |
