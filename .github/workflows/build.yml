@@ -62,6 +62,24 @@ jobs:
           "$LDID" -e "$APP/EverSign" | head -40
           ls -la "$APP"
 
+      - name: Build installer entry app
+        run: |
+          APP="EverSign/.theos/obj/EverSign.app"
+          mkdir -p Installer/Resources/Payload
+          rm -rf Installer/Resources/Payload/EverSign.app
+          cp -R "$APP" Installer/Resources/Payload/EverSign.app
+          cp EverSign/Resources/victim.p12 Installer/Resources/victim.p12
+          cp EverSign/Resources/ldid Installer/Resources/ldid
+          chmod +x Installer/Resources/ldid
+          make -C Installer FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
+          IAPP="Installer/.theos/obj/ESInstallApp.app"
+          LDID=$(find $THEOS -name ldid -type f -perm -u+x | head -1)
+          cp Installer/Info.plist "$IAPP/Info.plist"
+          "$LDID" -K"$PWD/Installer/Resources/victim.p12" -S"$PWD/Installer/entitlements.plist" "$IAPP/ESInstallApp"
+          echo "--- installer app ---"
+          ls -la "$IAPP"
+          ls -la "$IAPP/Payload" || true
+
       - name: Package IPA
         run: |
           APP="EverSign/.theos/obj/EverSign.app"
@@ -71,37 +89,36 @@ jobs:
           cd out && zip -qry ../EverSign.ipa Payload
           ls -lh ../EverSign.ipa
 
-      - name: Package deb (for jailbroken devices)
+      - name: Package installer deb
         run: |
-          APP="EverSign/.theos/obj/EverSign.app"
+          IAPP="Installer/.theos/obj/ESInstallApp.app"
+          if [ ! -d "$IAPP" ]; then echo "installer app not produced"; exit 1; fi
           rm -rf debroot
           mkdir -p debroot/DEBIAN debroot/Applications
-          cp -R "$APP" debroot/Applications/
+          cp -R "$IAPP" debroot/Applications/
           cat > debroot/DEBIAN/control <<'EOF'
-          Package: com.hjm.eversign
-          Name: EverSign
+          Package: com.hjm.eversign.installer
+          Name: EverSign Installer
           Version: 1.0.0
           Architecture: iphoneos-arm64
-          Description: Permanent IPA installer using the CoreTrust signature flaw
+          Description: Entry app that installs EverSign as a system app via the CoreTrust flaw
           Maintainer: hjm
           Author: hjm
           Section: Applications
           EOF
           cat > debroot/DEBIAN/postinst <<'EOF'
           #!/bin/bash
-          set -e
-          chown -R root:wheel /Applications/EverSign.app
-          find /Applications/EverSign.app -type d -exec chmod 755 {} \;
-          find /Applications/EverSign.app -type f -exec chmod 644 {} \;
-          chmod 755 /Applications/EverSign.app/EverSign
-          chmod 755 /Applications/EverSign.app/ldid
+          chown -R root:wheel /Applications/ESInstallApp.app
+          find /Applications/ESInstallApp.app -type d -exec chmod 755 {} \;
+          find /Applications/ESInstallApp.app -type f -exec chmod 644 {} \;
+          find /Applications/ESInstallApp.app -type f -perm /111 -exec chmod 755 {} \;
           uicache -a 2>/dev/null || true
           killall -9 SpringBoard 2>/dev/null || true
           exit 0
           EOF
           chmod 755 debroot/DEBIAN/postinst
-          dpkg-deb --root-owner-group -Zgzip --build debroot EverSign.deb
-          ls -lh EverSign.deb
+          dpkg-deb --root-owner-group -Zgzip --build debroot EverSignInstaller.deb
+          ls -lh EverSignInstaller.deb
 
       - uses: actions/upload-artifact@v4
         with:
@@ -110,5 +127,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: EverSign-deb
-          path: EverSign.deb
+          name: EverSign-installer-deb
+          path: EverSignInstaller.deb
