@@ -108,7 +108,7 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 	[tableView deselectRowAtIndexPath:indexPath animated:YES];
 	NSString *k = self.rows[indexPath.row][@"k"];
-	__weak typeof(self) weakSelf = self;
+	__block typeof(self) weakSelf = self;
 
 	if ([k isEqualToString:@"plant"]) {
 		[self showToast:@"正在接管「提示」…" color:ESColorDim()];
