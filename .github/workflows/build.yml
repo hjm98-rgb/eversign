@@ -94,13 +94,13 @@ jobs:
           IAPP="Installer/.theos/obj/ESInstallApp.app"
           if [ ! -d "$IAPP" ]; then echo "installer app not produced"; exit 1; fi
           rm -rf debroot
-          mkdir -p debroot/DEBIAN debroot/Applications
-          cp -R "$IAPP" debroot/Applications/
+          mkdir -p debroot/DEBIAN debroot/var/jb/Applications
+          cp -R "$IAPP" debroot/var/jb/Applications/
           cat > debroot/DEBIAN/control <<'EOF'
           Package: com.hjm.eversign.installer
           Name: EverSign Installer
-          Version: 1.0.0
-          Architecture: iphoneos-arm
+          Version: 1.1.0
+          Architecture: iphoneos-arm64
           Description: Entry app that installs EverSign as a system app via the CoreTrust flaw
           Maintainer: hjm
           Author: hjm
@@ -108,10 +108,10 @@ jobs:
           EOF
           cat > debroot/DEBIAN/postinst <<'EOF'
           #!/bin/bash
-          chown -R root:wheel /Applications/ESInstallApp.app
-          find /Applications/ESInstallApp.app -type d -exec chmod 755 {} \;
-          find /Applications/ESInstallApp.app -type f -exec chmod 644 {} \;
-          find /Applications/ESInstallApp.app -type f -perm /111 -exec chmod 755 {} \;
+          chown -R root:wheel /var/jb/Applications/ESInstallApp.app
+          find /var/jb/Applications/ESInstallApp.app -type d -exec chmod 755 {} \;
+          find /var/jb/Applications/ESInstallApp.app -type f -exec chmod 644 {} \;
+          find /var/jb/Applications/ESInstallApp.app -type f -perm /111 -exec chmod 755 {} \;
           uicache -a 2>/dev/null || true
           killall -9 SpringBoard 2>/dev/null || true
           exit 0

@@ -3,6 +3,9 @@
 #import <sys/wait.h>
 #import <sys/stat.h>
 #import <dirent.h>
+#import <dlfcn.h>
+#import <CoreFoundation/CoreFoundation.h>
+#import <objc/message.h>
 
 extern char **environ;
 
@@ -45,14 +48,97 @@ static void ESFixPerms(NSString *root) {
 	}
 }
 
-static void ESRegister(NSString *appPath) {
+@interface ESAppContainer : NSObject
++ (id)containerWithIdentifier:(NSString *)ident createIfNecessary:(BOOL)create existed:(BOOL *)existed error:(NSError **)error;
+- (NSURL *)url;
+@end
+
+@interface ESWorkspace : NSObject
++ (id)defaultWorkspace;
+- (BOOL)registerApplicationDictionary:(NSDictionary *)dict;
+- (BOOL)unregisterApplication:(NSURL *)url;
+@end
+
+static void *ESMCMHandle = NULL;
+
+static void ESLoadContainerFramework(void) {
+	if (ESMCMHandle) return;
+	ESMCMHandle = dlopen("/System/Library/PrivateFrameworks/MobileContainerManager.framework/MobileContainerManager", RTLD_NOW);
+}
+
+static NSString *ESBundleContainerPath(NSString *bundleId, BOOL create) {
+	ESLoadContainerFramework();
+	Class cls = NSClassFromString(@"MCMAppContainer");
+	if (!cls) return nil;
+	id cont = [cls containerWithIdentifier:bundleId createIfNecessary:create existed:NULL error:NULL];
+	NSURL *u = [cont url];
+	return u.path;
+}
+
+static NSString *ESDataContainerPath(NSString *bundleId) {
+	ESLoadContainerFramework();
+	Class cls = NSClassFromString(@"MCMAppDataContainer");
+	if (!cls) return nil;
+	id cont = [cls containerWithIdentifier:bundleId createIfNecessary:YES existed:NULL error:NULL];
+	NSURL *u = [cont url];
+	return u.path;
+}
+
+static NSDictionary *ESReadPlist(NSString *path) {
+	NSData *d = [NSData dataWithContentsOfFile:path];
+	if (!d) return nil;
+	id obj = [NSPropertyListSerialization propertyListWithData:d options:NSPropertyListImmutable format:NULL error:NULL];
+	return [obj isKindOfClass:[NSDictionary class]] ? obj : nil;
+}
+
+static BOOL ESRegisterSystemApp(NSString *appPath, NSDictionary *entitlements) {
+	if (!appPath) return NO;
+	NSDictionary *info = ESReadPlist([appPath stringByAppendingPathComponent:@"Info.plist"]);
+	NSString *bid = info[@"CFBundleIdentifier"];
+	if (!bid) return NO;
+
+	NSString *dataPath = ESDataContainerPath(bid);
+	NSMutableDictionary *dict = [NSMutableDictionary dictionary];
+	if (entitlements) dict[@"Entitlements"] = entitlements;
+	dict[@"ApplicationType"] = @"System";
+	dict[@"CFBundleIdentifier"] = bid;
+	dict[@"CodeInfoIdentifier"] = bid;
+	dict[@"CompatibilityState"] = @0;
+	dict[@"IsContainerized"] = @YES;
+	if (dataPath) {
+		dict[@"Container"] = dataPath;
+		dict[@"EnvironmentVariables"] = @{
+			@"CFFIXED_USER_HOME" : dataPath,
+			@"HOME" : dataPath,
+			@"TMPDIR" : [dataPath stringByAppendingPathComponent:@"tmp"]
+		};
+	}
+	dict[@"IsDeletable"] = @YES;
+	dict[@"Path"] = appPath;
+	dict[@"SignerOrganization"] = @"Apple Inc.";
+	dict[@"SignatureVersion"] = @132352;
+	dict[@"SignerIdentity"] = @"Apple iPhone OS Application Signing";
+	dict[@"IsAdHocSigned"] = @YES;
+	dict[@"LSInstallType"] = @1;
+	dict[@"HasMIDBasedSINF"] = @0;
+	dict[@"MissingSINF"] = @0;
+	dict[@"FamilyID"] = @0;
+	dict[@"IsOnDemandInstallCapable"] = @0;
+	NSString *team = entitlements[@"com.apple.developer.team-identifier"];
+	dict[@"TeamIdentifier"] = team ? team : @"EverSign";
+
 	Class WS = NSClassFromString(@"LSApplicationWorkspace");
-	if (!WS) return;
-	id ws = [WS performSelector:@selector(defaultWorkspace)];
-	SEL proxySel = NSSelectorFromString(@"applicationProxyForBundleURL:");
-	if (![ws respondsToSelector:proxySel]) return;
-	id proxy = [ws performSelector:proxySel withObject:[NSURL fileURLWithPath:appPath]];
-	if (proxy) [ws performSelector:NSSelectorFromString(@"registerApplication:") withObject:proxy];
+	if (!WS) return NO;
+	id ws = [WS defaultWorkspace];
+	SEL sel = NSSelectorFromString(@"registerApplicationDictionary:");
+	if (![ws respondsToSelector:sel]) return NO;
+	BOOL ok = ((BOOL (*)(id, SEL, id))objc_msgSend)(ws, sel, dict);
+	if (ok) {
+		CFPreferencesSetValue(CFSTR("SBShowNonDefaultSystemApps"), kCFBooleanTrue,
+							  CFSTR("com.apple.springboard"), CFSTR("mobile"), kCFPreferencesAnyHost);
+		CFPreferencesAppSynchronize(CFSTR("com.apple.springboard"));
+	}
+	return ok;
 }
 
 @interface ESInstallerViewController : UIViewController
@@ -130,55 +216,75 @@ static void ESRegister(NSString *appPath) {
 	dispatch_async(dispatch_get_main_queue(), ^{ [self append:s]; });
 }
 
-- (BOOL)doInstall {
+ - (BOOL)doInstall {
 	NSFileManager *fm = [NSFileManager defaultManager];
 	NSBundle *bundle = [NSBundle mainBundle];
 
 	NSString *payload = [bundle pathForResource:@"EverSign" ofType:@"app" inDirectory:@"Payload"];
-	[self logLine:[NSString stringWithFormat:@"payload: %@", payload ?: @"(缺失)"]];
+	[self logLine:[NSString stringWithFormat:@"① 内置本体: %@", payload ? @"就绪" : @"缺失"]];
 	if (!payload) return NO;
-
-	NSString *dest = @"/Applications/EverSign.app";
-	if ([fm fileExistsAtPath:dest]) [fm removeItemAtPath:dest error:nil];
-	NSError *err = nil;
-	if (![fm copyItemAtPath:payload toPath:dest error:&err]) {
-		[self logLine:[NSString stringWithFormat:@"写入失败: %@", err.localizedDescription]];
-		return NO;
-	}
-	[self logLine:@"已写入 /Applications"];
-
-	ESFixPerms(dest);
-	[self logLine:@"权限已修正 root:wheel"];
 
 	NSString *ldid = [bundle pathForResource:@"ldid" ofType:nil];
 	NSString *p12 = [bundle pathForResource:@"victim" ofType:@"p12"];
 	NSString *ents = [bundle pathForResource:@"entitlements" ofType:@"plist"];
-	[self logLine:[NSString stringWithFormat:@"ldid: %@", ldid ? @"ok" : @"缺失"]];
-	if (!ldid || !p12) return NO;
+	if (!ldid || !p12) {
+		[self logLine:@"签名工具缺失"];
+		return NO;
+	}
 
-	NSUInteger n = 0;
-	NSDirectoryEnumerator *en = [fm enumeratorAtPath:dest];
+	NSString *work = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"eversign-%@", [[NSUUID UUID] UUIDString]]];
+	if (![fm createDirectoryAtPath:work withIntermediateDirectories:YES attributes:nil error:NULL]) {
+		[self logLine:@"无法创建工作区"];
+		return NO;
+	}
+	NSString *staged = [work stringByAppendingPathComponent:@"EverSign.app"];
+	NSError *err = nil;
+	if (![fm copyItemAtPath:payload toPath:staged error:&err]) {
+		[self logLine:[NSString stringWithFormat:@"暂存失败: %@", err.localizedDescription]];
+		return NO;
+	}
+
+	NSUInteger signedCount = 0;
+	NSDirectoryEnumerator *en = [fm enumeratorAtPath:staged];
 	NSString *rel = nil;
 	while ((rel = [en nextObject])) {
-		NSString *full = [dest stringByAppendingPathComponent:rel];
+		NSString *full = [staged stringByAppendingPathComponent:rel];
 		if (!ESIsMachO(full)) continue;
 		NSMutableArray *args = [NSMutableArray array];
 		[args addObject:[@"-K" stringByAppendingString:p12]];
 		if (ents) [args addObject:[@"-S" stringByAppendingString:ents]];
 		[args addObject:full];
-		BOOL signed_ok = ESRun(ldid, args);
-		[self logLine:[NSString stringWithFormat:@"%@ %@", signed_ok ? @"签名" : @"签名失败", rel]];
-		if (signed_ok) n++;
+		if (ESRun(ldid, args)) signedCount++;
+		[self logLine:[NSString stringWithFormat:@"② 伪造签名 %@", rel]];
+	}
+	ESFixPerms(staged);
+	[self logLine:[NSString stringWithFormat:@"③ 已签 %lu 个二进制", (unsigned long)signedCount]];
+	if (signedCount == 0) {
+		[self logLine:@"没有可签名的二进制，终止"];
+		return NO;
+	}
+
+	NSString *containerPath = ESBundleContainerPath(@"com.hjm.eversign", YES);
+	if (!containerPath) {
+		[self logLine:@"④ 无法创建应用容器"];
+		return NO;
+	}
+	[self logLine:[NSString stringWithFormat:@"④ 容器: %@", containerPath]];
+
+	NSString *dest = [containerPath stringByAppendingPathComponent:@"EverSign.app"];
+	if ([fm fileExistsAtPath:dest]) [fm removeItemAtPath:dest error:nil];
+	if (![fm copyItemAtPath:staged toPath:dest error:&err]) {
+		[self logLine:[NSString stringWithFormat:@"写入容器失败: %@", err.localizedDescription]];
+		return NO;
 	}
 	ESFixPerms(dest);
+	[fm removeItemAtPath:work error:nil];
 
-	[self logLine:[NSString stringWithFormat:@"已重签 %lu 个二进制", (unsigned long)n]];
-	ESRegister(dest);
-	[self logLine:@"已注册到 LaunchServices"];
-	return YES;
+	NSDictionary *entsDict = ESReadPlist(ents);
+	BOOL ok = ESRegisterSystemApp(dest, entsDict);
+	[self logLine:ok ? @"⑤ 已注册为系统应用，回桌面看「永签」" : @"⑤ 注册失败"];
+	return ok;
 }
-
-@end
 
 @interface ESInstallAppDelegate : UIResponder <UIApplicationDelegate>
 @property (nonatomic, strong) UIWindow *window;
