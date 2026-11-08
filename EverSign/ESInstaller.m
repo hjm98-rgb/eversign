@@ -5,7 +5,6 @@
 #import <sys/stat.h>
 #import <dlfcn.h>
 #import <dirent.h>
-#import <plist/plist.h>
 
 extern char **environ;
 
