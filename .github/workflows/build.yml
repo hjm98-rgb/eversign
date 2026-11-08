@@ -37,6 +37,18 @@ jobs:
           chmod +x EverSign/Resources/ldid
           ls -l EverSign/Resources/
 
+      - name: Generate own signing cert
+        run: bash scripts/gen-cert.sh "$PWD/EverSign/Resources/victim.p12"
+
+      - name: Build persistence helper
+        run: |
+          make -C Helper FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
+          BIN=$(find Helper/.theos/obj -type f -name ESHelper | head -1)
+          echo "helper: $BIN"
+          cp "$BIN" EverSign/Resources/ESHelper
+          chmod +x EverSign/Resources/ESHelper
+          file EverSign/Resources/ESHelper
+
       - name: Build
         run: |
           make -C EverSign FINALPACKAGE=1 TARGET=iphone:clang:16.5:15.0
