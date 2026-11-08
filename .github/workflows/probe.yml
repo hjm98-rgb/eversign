@@ -1,0 +1,10 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  mac:
+    runs-on: macos-14
+    steps:
+      - run: xcodebuild -version
+      - run: clang --version
+      - run: sw_vers
+      - run: echo "runner=$RUNNER_OS/$RUNNER_ARCH"
