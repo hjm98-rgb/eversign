@@ -30,5 +30,5 @@ openssl x509 -req -in leaf.csr -CA inter.crt -CAkey inter.key -CAcreateserial \
 
 cat leaf.crt inter.crt root.crt > chain.pem
 openssl pkcs12 -export -inkey leaf.key -in leaf.crt -certfile chain.pem \
-  -keypbe NONE -certpbe NONE -passout pass: -out "$OUT"
+  -keypbe NONE -certpbe NONE -macalg sha1 -passout pass: -out "$OUT"
 echo "[cert] $OUT $(stat -c%s "$OUT") bytes"
