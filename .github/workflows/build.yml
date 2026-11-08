@@ -100,7 +100,7 @@ jobs:
           Package: com.hjm.eversign.installer
           Name: EverSign Installer
           Version: 1.0.0
-          Architecture: iphoneos-arm64
+          Architecture: iphoneos-arm
           Description: Entry app that installs EverSign as a system app via the CoreTrust flaw
           Maintainer: hjm
           Author: hjm
@@ -117,7 +117,7 @@ jobs:
           exit 0
           EOF
           chmod 755 debroot/DEBIAN/postinst
-          dpkg-deb --root-owner-group -Zgzip --build debroot EverSignInstaller.deb
+          dpkg-deb --root-owner-group -Zxz --build debroot EverSignInstaller.deb
           ls -lh EverSignInstaller.deb
 
       - uses: actions/upload-artifact@v4
